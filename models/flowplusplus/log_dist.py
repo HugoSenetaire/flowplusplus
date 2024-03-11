@@ -2,7 +2,10 @@
 import torch
 import torch.nn.functional as F
 
-from util import safe_log
+try :
+    from ...util import safe_log
+except:
+    from util import safe_log
 
 
 def _log_pdf(x, mean, log_scale):

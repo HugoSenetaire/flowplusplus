@@ -1,1 +1,1 @@
-from models.flowplusplus.flowplusplus import FlowPlusPlus
+from .flowplusplus import FlowPlusPlus

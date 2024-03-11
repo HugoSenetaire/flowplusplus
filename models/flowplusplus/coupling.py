@@ -1,7 +1,7 @@
 import torch.nn as nn
 
-from models.flowplusplus import log_dist as logistic
-from models.flowplusplus.nn import NN
+from ..flowplusplus import log_dist as logistic
+from .nn import NN
 
 
 class Coupling(nn.Module):

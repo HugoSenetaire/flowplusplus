@@ -3,11 +3,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.flowplusplus.act_norm import ActNorm
-from models.flowplusplus.inv_conv import InvConv
-from models.flowplusplus.nn import GatedConv
-from models.flowplusplus.coupling import Coupling
-from util import channelwise, checkerboard, Flip, safe_log, squeeze, unsqueeze
+from .act_norm import ActNorm
+from .inv_conv import InvConv
+from .nn import GatedConv
+from .coupling import Coupling
+try :
+    from ...util import channelwise, checkerboard, Flip, safe_log, squeeze, unsqueeze
+except :
+    from util import channelwise, checkerboard, Flip, safe_log, squeeze, unsqueeze
 
 
 class FlowPlusPlus(nn.Module):
@@ -67,10 +70,13 @@ class FlowPlusPlus(nn.Module):
         return x, sldj
 
     def dequantize(self, x, sldj):
-        if self.dequant_flows is not None:
-            x, sldj = self.dequant_flows(x, sldj)
-        else:
-            x = (x * 255. + torch.rand_like(x)) / 256.
+        # if self.dequant_flows is not None:
+            # x, sldj = self.dequant_flows(x, sldj)
+        # else:
+            # x = (x * 255. + torch.rand_like(x)) / 256.
+
+        x = (x+1)/2
+        x = (x * 255. + torch.rand_like(x)) / 256.
 
         return x, sldj
 
@@ -160,45 +166,84 @@ class _FlowStep(nn.Module):
                                   drop_prob=drop_prob)
 
     def forward(self, x, sldj, reverse=False):
+        """
+        Reverse means sampling...
+        """
+        # print("START",f"mode = {reverse}")
         if reverse:
             if self.next is not None:
                 x = squeeze(x)
                 x, x_split = x.chunk(2, dim=1)
-                x, sldj = self.next(x, sldj, reverse)
+                # print("NEXT")
+                x, sldj = self.next(x, sldj, reverse=True)
+                # if torch.any(torch.isnan(x)):
+                #     print("NAN")
+                # print("======")
                 x = torch.cat((x, x_split), dim=1)
                 x = unsqueeze(x)
 
             if self.checkers:
                 x = checkerboard(x)
+                # print("CHECKERBOARD")
                 for flow in reversed(self.checkers):
+                    # print(flow._get_name())
                     x, sldj = flow(x, sldj, reverse)
+                    # if torch.any(torch.isnan(x[0])):
+                    #     print("NAN")
+                    # print("======")
                 x = checkerboard(x, reverse=True)
 
             if self.channels:
                 x = channelwise(x)
+                # print("CHANNELWISE")
                 for flow in reversed(self.channels):
+                    # print(flow._get_name(),)
                     x, sldj = flow(x, sldj, reverse)
+                    # if torch.any(torch.isnan(x[0])):
+                        # print("NAN")
+                    # print("======")
                 x = channelwise(x, reverse=True)
+            # print("REVERSE END", x.mean(), x.std(), x.min(), x.max())
+            
         else:
+            # print("HERE")
+            # print("REVERSE START", x.mean(), x.std(), x.min(), x.max())
+
             if self.channels:
                 x = channelwise(x)
+                # print("CHANNELWISE")
                 for flow in self.channels:
+                    # print(flow._get_name())
                     x, sldj = flow(x, sldj, reverse)
+                    # if torch.any(torch.isnan(x[0])):
+                        # print("NAN")
+                    # print("======")
                 x = channelwise(x, reverse=True)
 
             if self.checkers:
                 x = checkerboard(x)
+                # print("CHECKERBOARD")
                 for flow in self.checkers:
+                    # print(flow._get_name())
                     x, sldj = flow(x, sldj, reverse)
+                    # if torch.any(torch.isnan(x[0])):
+                    #     print("NAN")
                 x = checkerboard(x, reverse=True)
 
             if self.next is not None:
                 x = squeeze(x)
                 x, x_split = x.chunk(2, dim=1)
+                # print("NEXT")
                 x, sldj = self.next(x, sldj, reverse)
+                # if torch.any(torch.isnan(x)):
+                #     print("NAN")
+                # print("======")
                 x = torch.cat((x, x_split), dim=1)
                 x = unsqueeze(x)
-
+        # print("BACK")
+        # if torch.any(torch.isnan(x)):
+        #     print("NAN")
+        # print("======")
         return x, sldj
 
 

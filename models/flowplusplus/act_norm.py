@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
 
-from util import mean_dim
+try :
+    from ...util import mean_dim
+except :
+    from util import mean_dim
 
 
 class _BaseNorm(nn.Module):
@@ -75,7 +78,6 @@ class ActNorm(_BaseNorm):
         mean = mean_dim(x.clone(), dim=[0, 2, 3], keepdims=True)
         var = mean_dim((x.clone() - mean) ** 2, dim=[0, 2, 3], keepdims=True)
         inv_std = 1. / (var.sqrt() + self.eps)
-
         return mean, inv_std
 
     def _scale(self, x, sldj, reverse=False):
